@@ -1,0 +1,13 @@
+[project]
+name = "lowliqspider"
+version = "0.1.0"
+description = "Скринер ершей, всплесков объёма и резких движений на неликвидных монетах MEXC и Gate"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"

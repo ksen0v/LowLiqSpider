@@ -1,0 +1,13 @@
+services:
+  spider:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      # если сервер смотрит в интернет — задайте логин и пароль
+      SPIDER_AUTH_USER: ${SPIDER_AUTH_USER:-}
+      SPIDER_AUTH_PASSWORD: ${SPIDER_AUTH_PASSWORD:-}
+      SPIDER_DEMO: ${SPIDER_DEMO:-}
+    restart: unless-stopped

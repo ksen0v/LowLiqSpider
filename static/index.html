@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LowLiqSpider</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕷</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🕷</span>
+      <span class="name">LowLiqSpider</span>
+      <span class="badge-demo" id="demo-badge" hidden>ДЕМО</span>
+      <span class="conn" id="conn" title="Соединение с сервером"></span>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="controls">
+      <div class="chips" id="exchange-filters" title="Какие биржи показывать"></div>
+      <div class="chips" id="detector-filters" title="Какие алерты показывать и озвучивать"></div>
+      <select id="grid-size" title="Размер сетки"></select>
+      <button class="btn" id="add-pair-btn" title="Открыть любую пару в сетке">+ Пара</button>
+      <button class="btn icon" id="sound-btn" title="Звук"></button>
+      <button class="btn" id="feed-btn" title="История алертов">Лента</button>
+      <button class="btn" id="settings-btn">Настройки</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="grid" id="grid"></section>
+    <aside class="feed" id="feed" hidden>
+      <div class="feed-head">
+        <span>Алерты</span>
+        <span class="muted" id="feed-count"></span>
+        <button class="btn small" id="feed-clear" title="Удалить историю алертов на сервере">Очистить</button>
+      </div>
+      <div class="feed-list" id="feed-list"></div>
+    </aside>
+  </main>
+  <a class="attribution" href="https://www.tradingview.com/" target="_blank" rel="noopener">Графики: TradingView Lightweight Charts™</a>
+
+  <dialog class="modal settings" id="settings-dialog">
+    <form method="dialog" class="modal-inner" id="settings-form" novalidate>
+      <div class="modal-head">
+        <h2>Настройки</h2>
+        <nav class="tabs" id="settings-tabs"></nav>
+        <button type="button" class="btn icon close" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <div class="modal-body" id="settings-body"></div>
+      <div class="modal-foot">
+        <span class="form-msg" id="settings-msg"></span>
+        <button type="button" class="btn danger" id="settings-reset">Сбросить всё</button>
+        <button type="button" class="btn" data-close>Отмена</button>
+        <button type="submit" class="btn primary" id="settings-save">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal add-pair" id="add-dialog">
+    <div class="modal-inner">
+      <div class="modal-head">
+        <h2>Открыть пару</h2>
+        <button type="button" class="btn icon close" data-close aria-label="Закрыть">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <select id="add-exchange"></select>
+          <input id="add-query" type="search" placeholder="Тикер, например ABC" autocomplete="off">
+        </div>
+        <div class="search-results" id="add-results"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/static/vendor/lightweight-charts/lightweight-charts.standalone.production.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
