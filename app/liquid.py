@@ -15,7 +15,9 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.http import JsonClient
+import httpx
+
+from app.http import ExchangeError, JsonClient, retire_later
 from app.settings import LiquidSettings
 
 log = logging.getLogger(__name__)
@@ -191,7 +193,7 @@ class LiquidRegistry:
         self._demo_assets = demo_assets
         self._assets: dict[str, set[str]] = {}  # "binance:spot" -> нормализованные тикеры
         self._meta: dict[str, dict[str, Any]] = {}
-        self._http = JsonClient(timeout=30)
+        self._http = JsonClient(timeout=httpx.Timeout(30.0, connect=10.0))
         self.ready = asyncio.Event()
         self.wake = asyncio.Event()
 
@@ -234,8 +236,22 @@ class LiquidRegistry:
             )
         return rows
 
+    def set_proxy(self, proxy: str) -> None:
+        if proxy == (self._http.proxy or ""):
+            return
+        old = self._http
+        self._http = JsonClient(timeout=httpx.Timeout(30.0, connect=10.0), proxy=proxy)
+        retire_later(old)
+
     async def refresh(self, cfg: LiquidSettings, force: bool = False) -> None:
         if self._demo_assets is not None:
+            self.ready.set()
+            return
+        try:
+            self.set_proxy(cfg.proxy)
+        except ExchangeError as exc:
+            for key in enabled_sources(cfg):
+                self._meta.setdefault(key, {"ts": None, "count": 0})["error"] = str(exc)
             self.ready.set()
             return
         max_age = cfg.refresh_hours * 3600
@@ -252,9 +268,10 @@ class LiquidRegistry:
             if not assets:
                 raise ValueError("пустой ответ")
         except Exception as exc:  # noqa: BLE001 — любая ошибка одной биржи не должна валить остальные
-            log.warning("Не удалось загрузить листинги %s: %s", key, exc)
+            error = str(exc) if isinstance(exc, ExchangeError) else f"{type(exc).__name__}: {exc}"
+            log.warning("Не удалось загрузить листинги %s: %s", key, error)
             meta = self._meta.setdefault(key, {"ts": None, "count": 0})
-            meta["error"] = str(exc)[:200]
+            meta["error"] = error[:400]
             return
         ts = time.time()
         self._set(key, assets, ts)

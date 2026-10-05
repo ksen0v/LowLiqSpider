@@ -112,10 +112,10 @@ def _bucket_trades(base: str, behavior: str, price0: float, bucket: int) -> tupl
 class DemoClient(ExchangeClient):
     base_url = ""
 
-    def __init__(self, exchange_id: str, name: str, scan_rate: float = 10, ui_rate: float = 6):
+    def __init__(self, exchange_id: str, name: str, scan_rate: float = 10, ui_rate: float = 6, proxy: str = ""):
         self.id = exchange_id
         self.name = f"{name} (демо)"
-        super().__init__(scan_rate, ui_rate)
+        super().__init__(scan_rate, ui_rate, proxy)
         self._markets = _MARKETS[exchange_id]
 
     def _symbol(self, base: str) -> str:

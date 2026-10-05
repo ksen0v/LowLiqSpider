@@ -777,7 +777,11 @@ function renderStatus(st) {
         { class: 'pill', title: tip },
         h('span', { class: `dot ${dot}` }),
         h('b', {}, ex.name),
-        ex.enabled ? `${ex.universe} монет · ${ex.scans_per_min}/мин` : 'выключена',
+        !ex.enabled
+          ? 'выключена'
+          : !ex.symbols && ex.last_error
+            ? 'нет связи с API'
+            : `${ex.universe} монет · ${ex.scans_per_min}/мин`,
       ),
     );
   }
@@ -977,7 +981,8 @@ function fieldRow(key, prop, schema, path, value) {
     });
     return h('div', { class: 'field text' }, h('label', {}, title), input, hint);
   }
-  const secret = /token|password/i.test(key);
+  // в адресе прокси бывают логин и пароль
+  const secret = /token|password|proxy/i.test(key);
   const input = h('input', { type: secret ? 'password' : 'text', value: value ?? '', autocomplete: 'off', dataset: { path: dataPath, type: 'str' } });
   const control = secret
     ? h(

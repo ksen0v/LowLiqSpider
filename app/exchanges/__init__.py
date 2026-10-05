@@ -8,8 +8,8 @@ from app.exchanges.mexc import MexcClient
 NAMES = {"mexc": "MEXC", "gate": "Gate"}
 
 
-def create_client(exchange_id: str, demo: bool, scan_rate: float) -> ExchangeClient:
+def create_client(exchange_id: str, demo: bool, scan_rate: float, proxy: str = "") -> ExchangeClient:
     if demo:
-        return DemoClient(exchange_id, NAMES[exchange_id], scan_rate=scan_rate)
+        return DemoClient(exchange_id, NAMES[exchange_id], scan_rate=scan_rate, proxy=proxy)
     cls = {"mexc": MexcClient, "gate": GateClient}[exchange_id]
-    return cls(scan_rate=scan_rate)
+    return cls(scan_rate=scan_rate, proxy=proxy)

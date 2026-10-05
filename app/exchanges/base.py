@@ -4,7 +4,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.http import ExchangeError, JsonClient, RateLimiter
+from app.http import ExchangeError, JsonClient, RateLimiter, retire_later
 from app.models import Candle, SymbolInfo, Ticker, Trade
 
 INTERVALS = ("1m", "5m", "15m", "1h")
@@ -26,8 +26,9 @@ class ExchangeClient(ABC):
     name: str
     base_url: str
 
-    def __init__(self, scan_rate: float = 10, ui_rate: float = 6):
-        self.http = JsonClient(self.base_url)
+    def __init__(self, scan_rate: float = 10, ui_rate: float = 6, proxy: str = ""):
+        self.proxy = proxy
+        self.http = JsonClient(self.base_url, proxy=proxy)
         # запросы сканера и интерфейса лимитируются отдельно, чтобы графики не ждали сканер
         self.scan_limiter = RateLimiter(scan_rate)
         self.ui_limiter = RateLimiter(ui_rate)
@@ -44,6 +45,15 @@ class ExchangeClient(ABC):
 
     @abstractmethod
     async def fetch_trades(self, symbol: str, limit: int, ui: bool = False) -> list[Trade]: ...
+
+    def set_proxy(self, proxy: str) -> None:
+        """Сменить прокси на лету: новые запросы идут через новый клиент."""
+        if proxy == self.proxy:
+            return
+        old = self.http
+        self.http = JsonClient(self.base_url, proxy=proxy)
+        self.proxy = proxy
+        retire_later(old)
 
     def limiter(self, ui: bool) -> RateLimiter:
         return self.ui_limiter if ui else self.scan_limiter

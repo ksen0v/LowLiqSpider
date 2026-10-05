@@ -32,6 +32,11 @@ _LEVERAGED = re.compile(r"^[A-Z0-9]+?[2-9](L|S)$")
 HOT_MIN_RESCAN_SEC = 10
 
 
+def _error_text(exc: Exception) -> str:
+    """У ExchangeError уже понятный текст, у остальных добавляем тип: у KeyError текст — только ключ."""
+    return str(exc) if isinstance(exc, ExchangeError) else f"{type(exc).__name__}: {exc}"
+
+
 def build_universe(
     symbols: dict[str, SymbolInfo],
     tickers: dict[str, Ticker],
@@ -84,6 +89,8 @@ def pair_url(template: str, info: SymbolInfo) -> str:
 
 
 class ExchangeScanner:
+    ERROR_RETRY_SEC = 30
+
     def __init__(
         self,
         client: ExchangeClient,
@@ -118,6 +125,7 @@ class ExchangeScanner:
         self.last_tickers_at: float | None = None
         self.last_symbols_at: float | None = None
         self.alerts = 0
+        self._wake = asyncio.Event()
 
     @property
     def cfg(self) -> ExchangeSettings:
@@ -144,26 +152,41 @@ class ExchangeScanner:
         while len(self._workers) > count:
             self._workers.pop().cancel()
 
+    def wake(self) -> None:
+        """Настройки изменились (например, указали прокси) — повторить запрос, не дожидаясь паузы."""
+        self._wake.set()
+
+    async def _pause(self, seconds: float) -> None:
+        # событие не сбрасываем заранее: настройки могли сохранить, пока шёл неудачный запрос
+        try:
+            await asyncio.wait_for(self._wake.wait(), timeout=seconds)
+        except TimeoutError:
+            pass
+        self._wake.clear()
+
     def _record_error(self, exc: Exception) -> None:
-        self.last_error = str(exc)[:300]
+        self.last_error = _error_text(exc)[:500]
         self._errors.append(time.time())
 
     # ----------------------------------------------------------------- уровень 1: тикеры
 
     async def _symbols_loop(self) -> None:
         while True:
-            if not self.cfg.enabled:
+            cfg = self.cfg
+            if not cfg.enabled:
                 await asyncio.sleep(2)
                 continue
             try:
+                self.client.set_proxy(cfg.proxy)
                 self.symbols = await self.client.load_symbols()
-                self.last_symbols_at = time.time()
-                log.info("%s: %d торгуемых пар", self.id, len(self.symbols))
-                await asyncio.sleep(self.cfg.scan.symbols_refresh_min * 60)
-            except ExchangeError as exc:
+            except Exception as exc:  # noqa: BLE001 — цикл не должен умирать ни от какой ошибки
                 self._record_error(exc)
-                log.warning("%s: не удалось загрузить список пар: %s", self.id, exc)
-                await asyncio.sleep(30)
+                log.warning("%s: не удалось загрузить список пар: %s", self.id, _error_text(exc))
+                await self._pause(self.ERROR_RETRY_SEC)
+                continue
+            self.last_symbols_at = time.time()
+            log.info("%s: %d торгуемых пар", self.id, len(self.symbols))
+            await asyncio.sleep(cfg.scan.symbols_refresh_min * 60)
 
     async def _tickers_loop(self) -> None:
         # без листингов ликвидных бирж первый проход насканировал бы всё подряд
@@ -183,13 +206,14 @@ class ExchangeScanner:
             started = time.monotonic()
             if self.symbols:
                 try:
+                    self.client.set_proxy(cfg.proxy)
                     self.tickers = await self.client.fetch_tickers()
                     self.last_tickers_at = time.time()
                     self._update_universe(cfg)
                     self._update_hot(cfg)
-                except ExchangeError as exc:
+                except Exception as exc:  # noqa: BLE001
                     self._record_error(exc)
-                    log.warning("%s: ошибка тикеров: %s", self.id, exc)
+                    log.warning("%s: ошибка тикеров: %s", self.id, _error_text(exc))
             elapsed = time.monotonic() - started
             await asyncio.sleep(max(cfg.scan.tickers_interval_sec - elapsed, 0.5))
 

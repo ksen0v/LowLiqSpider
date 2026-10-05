@@ -98,8 +98,10 @@ async def lifespan(app: FastAPI):
 
     svc.scanners = {}
     for ex in EXCHANGE_IDS:
-        client = create_client(ex, DEMO, svc.settings.current.exchange(ex).scan.max_requests_per_sec)
+        ex_cfg = svc.settings.current.exchange(ex)
+        client = create_client(ex, DEMO, ex_cfg.scan.max_requests_per_sec, ex_cfg.proxy)
         svc.scanners[ex] = ExchangeScanner(client, lambda: svc.settings.current, svc.liquid, svc.hub)
+    svc.settings.subscribe(lambda _: [s.wake() for s in svc.scanners.values()])
 
     tasks = [
         asyncio.create_task(svc.telegram.run(), name="telegram"),
@@ -200,6 +202,7 @@ _ERRORS_RU = {
     "literal_error": "Недопустимое значение",
     "bool_type": "Ожидается да/нет",
     "string_type": "Ожидается текст",
+    "value_error": "{error}",
 }
 
 

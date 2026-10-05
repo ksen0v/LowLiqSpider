@@ -45,6 +45,14 @@ def test_settings_roundtrip_and_validation(client):
     assert r.json()["detail"][0]["loc"] == "mexc.detectors.ping_pong.min_score"
     assert r.json()["detail"][0]["msg"] == "Должно быть не больше 1"
 
+    s["mexc"]["detectors"]["ping_pong"]["min_score"] = 0.5
+    s["gate"]["proxy"] = "1.2.3.4:1080"
+    r = client.put("/api/settings", json=s)
+    assert r.json()["detail"][0] == {
+        "loc": "gate.proxy",
+        "msg": "Прокси должен начинаться с http://, https://, socks5:// или socks5h://",
+    }
+
     reset = client.post("/api/settings/reset").json()
     assert reset["ui"]["grid_rows"] == 3
 

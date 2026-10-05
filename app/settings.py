@@ -9,11 +9,24 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class _Section(BaseModel):
     model_config = ConfigDict(extra="ignore", validate_assignment=True)
+
+
+PROXY_DESCRIPTION = (
+    "Если API недоступно из вашей сети: http://user:pass@host:port или socks5://host:port. "
+    "Пусто — напрямую (или через переменную окружения HTTPS_PROXY)"
+)
+
+
+def _check_proxy(value: str) -> str:
+    value = value.strip()
+    if value and not value.lower().startswith(("http://", "https://", "socks5://", "socks5h://")):
+        raise ValueError("Прокси должен начинаться с http://, https://, socks5:// или socks5h://")
+    return value
 
 
 # --------------------------------------------------------------------------- детекторы
@@ -213,9 +226,15 @@ class ExchangeSettings(_Section):
     alert_cooldown_min: float = Field(
         15, ge=0, le=1440, title="Пауза между алертами, мин", description="Для одной монеты и одного детектора"
     )
+    proxy: str = Field("", title="Прокси для API биржи", description=PROXY_DESCRIPTION)
     universe: UniverseSettings = Field(default_factory=UniverseSettings, title="Отбор монет")
     scan: ScanSettings = Field(default_factory=ScanSettings, title="Сканирование")
     detectors: DetectorsSettings = Field(default_factory=DetectorsSettings, title="Детекторы")
+
+    @field_validator("proxy")
+    @classmethod
+    def validate_proxy(cls, value: str) -> str:
+        return _check_proxy(value)
 
 
 def _mexc_defaults() -> ExchangeSettings:
@@ -255,6 +274,7 @@ class LiquidSettings(_Section):
     model_config = ConfigDict(title="Ликвидные биржи")
 
     refresh_hours: float = Field(6, ge=0.25, le=168, title="Обновлять листинги, раз в N часов")
+    proxy: str = Field("", title="Прокси для API ликвидных бирж", description=PROXY_DESCRIPTION)
     binance: LiquidVenue = Field(default_factory=_venue, title="Binance")
     bybit: LiquidVenue = Field(default_factory=_venue, title="Bybit")
     okx: LiquidVenue = Field(default_factory=_venue, title="OKX")
@@ -269,6 +289,11 @@ class LiquidSettings(_Section):
         title="Считать ликвидными вручную",
         description="Тикеры через запятую. Эти монеты никогда не попадут в скан",
     )
+
+    @field_validator("proxy")
+    @classmethod
+    def validate_proxy(cls, value: str) -> str:
+        return _check_proxy(value)
 
 
 # --------------------------------------------------------------------------- уведомления и UI
